@@ -215,6 +215,17 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         });
     }, [records, focusableIndices]);
 
+    // ── Integer sanitization helper ──────────────────────────────────────────
+    /**
+     * Sanitizes input for integer fields.
+     * Strips all non-digit characters (commas, dots, minus signs, letters).
+     * Returns pure numeric string or null.
+     */
+    const sanitizeInteger = useCallback((value: string): string | null => {
+        const cleanValue = value.replace(/[^0-9]/g, "");
+        return cleanValue !== "" ? cleanValue : null;
+    }, []);
+
     // ── Validation helper for decimal fields ───────────────────────────────
     /**
      * Validates a decimal value against min/max constraints.
@@ -369,19 +380,22 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         switch (record.TipoVariable) {
 
             // ── Integer numeric field ───────────────────────────────────────
+            // Uses type="text" to prevent mobile keyboards from adding commas/dots
+            // Only digits 0-9 are allowed; all other chars are stripped
             case "Numero entero":
                 return (
                     <input
                         {...commonInputProps}
-                        type="number"
-                        step="1"
-                        inputMode="numeric"   /* Android: shows numeric keyboard  */
-                        pattern="[0-9]*"      /* iOS: shows numeric keyboard       */
+                        type="text"
+                        inputMode="numeric"   /* Android/iOS: shows numeric keyboard */
+                        pattern="[0-9]*"      /* iOS hint for numeric-only           */
+                        placeholder="Ingrese el valor entero"
                         value={record.Valor ?? ""}
                         ref={(el) => { inputRefs.current[index] = el; }}
-                        onChange={(e) =>
-                            handleChange(index, "Valor", e.target.value !== "" ? e.target.value : null)
-                        }
+                        onChange={(e) => {
+                            const sanitized = sanitizeInteger(e.target.value);
+                            handleChange(index, "Valor", sanitized);
+                        }}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
                 );
@@ -393,8 +407,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                     <input
                         {...commonInputProps}
                         type="text"
-                        inputMode="decimal"   /* Shows decimal keyboard on mobile */
-                        value={record.Valor ?? ""}
+                        inputMode="decimal"   /* Shows decimal keyboard on mobile */                        placeholder="Ingrese el valor decimal"                        value={record.Valor ?? ""}
                         ref={(el) => { inputRefs.current[index] = el; }}
                         onChange={(e) =>
                             handleChange(index, "Valor", e.target.value !== "" ? e.target.value : null)
@@ -412,6 +425,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         autoComplete="off"
                         autoCorrect="off"
                         spellCheck={false}
+                        placeholder="Ingrese el valor"
                         value={record.Valor ?? ""}
                         ref={(el) => { inputRefs.current[index] = el; }}
                         onChange={(e) =>
