@@ -1,0 +1,341 @@
+/*
+ * DynamicForm.css
+ * ──────────────────────────────────────────────────────────────────────────
+ * Mobile-first styles for the DynamicForm PCF component.
+ *
+ * Design goals
+ * ────────────
+ *  • All interactive elements ≥ 44 px tall  (Apple HIG / WCAG 2.5.5)
+ *  • Font sizes ≥ 16px on inputs to prevent iOS Safari zoom-on-focus
+ *  • No transitions that delay visual feedback; only colour/shadow fades
+ *  • Neutral palette that works on both light Canvas-app backgrounds
+ *  • Injected by the PCF runtime from the manifest <css> resource entry;
+ *    DO NOT @import this file inside TypeScript/React code.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   (defined as CSS custom properties for easy theming)
+═══════════════════════════════════════════════════════════════════════════ */
+:root {
+    --df-color-bg:            #f3f4f6;   /* page / container background          */
+    --df-color-surface:       #ffffff;   /* card / row background                */
+    --df-color-border:        #d1d5db;   /* default input border                 */
+    --df-color-border-focus:  rgba(65, 107, 63, 1);   /* Brand green – focus ring             */
+    --df-color-text:          #111827;   /* primary text                         */
+    --df-color-label:         #6b7280;   /* de-emphasised label text             */
+    --df-color-placeholder:   #9ca3af;   /* placeholder / hint text              */
+    --df-color-primary:       rgba(65, 107, 63, 1);   /* Brand green – photo button background */
+    --df-color-primary-hover: #365632;   /* Darker green for hover               */
+    --df-color-primary-active:#2d4829;   /* Even darker green for active         */
+    --df-color-divider:       #e5e7eb;   /* row separator                        */
+
+    --df-radius:     10px;
+    --df-radius-sm:   6px;
+    --df-shadow-focus: 0 0 0 3px rgba(65, 107, 63, 0.20);
+    --df-font:        "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+    --df-touch-min:   44px;   /* minimum touch-target height (Apple HIG)        */
+    --df-input-font:  16px;   /*  ≥ 16 px prevents iOS Safari auto-zoom         */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESET / BASE
+═══════════════════════════════════════════════════════════════════════════ */
+.df-container *,
+.df-container *::before,
+.df-container *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent; /* remove grey flash on mobile tap */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTAINER
+   Fills whatever height/width Power Apps allocates; rows scroll vertically.
+═══════════════════════════════════════════════════════════════════════════ */
+.df-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    background: var(--df-color-bg);
+    font-family: var(--df-font);
+    color: var(--df-color-text);
+
+    /* Smooth momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROW  (one question per row)
+═══════════════════════════════════════════════════════════════════════════ */
+.df-row {
+    background: var(--df-color-surface);
+    border-bottom: 1px solid var(--df-color-divider);
+    padding: 14px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    /* Subtle lift on the first / last row */
+}
+
+.df-row:first-child {
+    border-radius: var(--df-radius) var(--df-radius) 0 0;
+    /* Optional: add a top border for visual grouping */
+}
+
+.df-row:last-child {
+    border-bottom: none;
+    border-radius: 0 0 var(--df-radius) var(--df-radius);
+}
+
+/* Photo rows get a slightly tinted background to distinguish them visually */
+.df-row--photo {
+    background: #f0f7ff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LABEL
+═══════════════════════════════════════════════════════════════════════════ */
+.df-label {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--df-color-label);
+
+    /* Prevent label text from being selectable on long-press (mobile UX) */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.df-label-order {
+    opacity: 0.55;
+    font-weight: 400;
+    font-size: 11px;
+    min-width: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUT WRAPPER
+   Full-width wrapper lets us add icons/badges later without changing layout.
+═══════════════════════════════════════════════════════════════════════════ */
+.df-input-wrapper {
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ERROR MESSAGE
+   Validation error displayed below invalid inputs
+═══════════════════════════════════════════════════════════════════════════ */
+.df-error-message {
+    margin-top: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #dc2626;
+    background: #fee2e2;
+    border-left: 3px solid #dc2626;
+    border-radius: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE INPUT / SELECT  (shared by all text, number, and select elements)
+
+   Critical mobile notes
+   ─────────────────────
+   font-size ≥ 16px  →  prevents iOS Safari from zooming in on focus
+   min-height 44px   →  meets Apple HIG / WCAG 2.5.5 touch target size
+   -webkit-appearance: none  →  removes iOS default styling (rounded corners, etc.)
+═══════════════════════════════════════════════════════════════════════════ */
+.df-input {
+    display: block;
+    width: 100%;
+    min-height: var(--df-touch-min);
+    padding: 10px 14px;
+
+    font-family: var(--df-font);
+    font-size: var(--df-input-font);   /* CRITICAL: ≥ 16 px, no iOS zoom */
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--df-color-text);
+
+    background: #f9fafb;
+    border: 1.5px solid var(--df-color-border);
+    border-radius: var(--df-radius-sm);
+
+    outline: none;
+
+    /* Smooth focus ring animation */
+    transition:
+        border-color 0.15s ease,
+        box-shadow   0.15s ease,
+        background   0.15s ease;
+
+    /* Remove browser defaults that fight our styles */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Active / focused state ──────────────────────────────────────────────── */
+.df-input:focus {
+    border-color: var(--df-color-border-focus);
+    background: #ffffff;
+    box-shadow: var(--df-shadow-focus);
+}
+
+/* Error state ─────────────────────────────────────────────────────────── */
+.df-input--error {
+    border-color: #dc2626 !important;
+    background: #fef2f2;
+}
+
+.df-input--error:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.20);
+}
+
+/* Placeholder text ────────────────────────────────────────────────────── */
+.df-input::placeholder {
+    color: var(--df-color-placeholder);
+    font-weight: 300;
+}
+
+/* Number spinners – hide them on mobile (use Enter / keyboard instead) ─── */
+.df-input[type="number"]::-webkit-inner-spin-button,
+.df-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.df-input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECT  (Categorica dropdown)
+   Custom chevron replaces the native OS arrow (inconsistent across platforms)
+═══════════════════════════════════════════════════════════════════════════ */
+.df-select {
+    cursor: pointer;
+    padding-right: 38px; /* room for the chevron icon */
+
+    /* Custom chevron drawn as an inline SVG data-URI ─────────────────────── */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%236b7280' d='M8 10.5L2.5 5h11z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+}
+
+.df-select:focus {
+    border-color: var(--df-color-border-focus);
+    background-color: #ffffff;
+    box-shadow: var(--df-shadow-focus);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHOTO CONTAINER & THUMBNAIL
+   Displays uploaded photo thumbnail above the action button
+═══════════════════════════════════════════════════════════════════════════ */
+.df-photo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.df-photo-thumbnail {
+    height: 60px;
+    max-width: 100%;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid var(--df-color-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHOTO BUTTON
+   Full-width call-to-action.  Uses brand green color.
+═══════════════════════════════════════════════════════════════════════════ */
+.df-photo-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    width: 100%;
+    min-height: var(--df-touch-min);
+    padding: 10px 18px;
+
+    font-family: var(--df-font);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+
+    background: var(--df-color-primary);
+    border: none;
+    border-radius: var(--df-radius-sm);
+
+    cursor: pointer;
+    outline: none;
+
+    transition:
+        background   0.15s ease,
+        transform    0.1s  ease,
+        box-shadow   0.15s ease;
+}
+
+.df-photo-button:hover {
+    background: var(--df-color-primary-hover);
+    box-shadow: 0 2px 8px rgba(65, 107, 63, 0.30);
+}
+
+.df-photo-button:active {
+    background: var(--df-color-primary-active);
+    transform: scale(0.97);  /* subtle press feedback */
+    box-shadow: none;
+}
+
+.df-photo-button:focus-visible {
+    box-shadow: var(--df-shadow-focus);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════════════════════════════════ */
+.df-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    color: var(--df-color-label);
+    font-size: 14px;
+    text-align: center;
+}
+
+.df-empty p {
+    margin: 0;
+    opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE ADJUSTMENTS
+   Slightly larger inputs on tablets / desktop for comfort
+═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 600px) {
+    .df-row {
+        padding: 16px 20px 14px;
+    }
+
+    .df-input {
+        font-size: 15px; /* slightly smaller fine on non-mobile */
+    }
+}
