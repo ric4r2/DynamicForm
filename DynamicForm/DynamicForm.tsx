@@ -289,36 +289,13 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         [validateDecimal]
     );
 
-    // ── Enter-key handler ──────────────────────────────────────────────────
+    // ── Core save-and-navigate logic ────────────────────────────────────────
     /**
-     * handleKeyDown is attached to every text/number/select input.
-     *
-     * Scenario A – Enter on a NON-LAST focusable row:
-     *   1. Capture the current (updated) record from local state.
-     *   2. Signal Power Apps: OutAction="SAVE_RECORD", OutModifiedRecord=<JSON>.
-     *   3. Shift DOM focus to the next focusable input  →  keyboard stays open.
-     *
-     * Scenario B – Enter on the LAST focusable row:
-     *   1. Capture the record.
-     *   2. Signal Power Apps: OutAction="SAVE_AND_NEXT_PLANTACION".
-     *   3. .blur() the current input  →  Power Apps can advance the gallery.
+     * Core save-and-navigate logic (shared by both form submit and keydown).
+     * Extracted to ensure consistent behavior across desktop and mobile.
      */
-    const handleKeyDown = useCallback(
-        (
-            e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
-            index: number
-        ) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault(); // Prevent any default browser form-submit behaviour
-
-            // Capture the current record from state.
-            // Note: because this callback closes over `records` from the time it
-            // was created, and `records` updates asynchronously, we read from the
-            // DOM element's current value as the source of truth for the snapshot,
-            // then build the record manually to ensure it's up-to-date.
-            // Actually: React's synthetic event fires AFTER setState, so `records`
-            // in this closure may be stale.  We work around this by capturing the
-            // value directly from the event target and merging it back.
+    const handleSubmitLogic = useCallback(
+        (index: number) => {
             const record = records[index];
             if (!record) return;
 
@@ -356,6 +333,54 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         [records, focusableIndices, validationErrors, triggerOutputChange]
     );
 
+    // ── Enter-key handler ──────────────────────────────────────────────────
+    /**
+     * handleKeyDown is attached to every text/number/select input.
+     *
+     * Scenario A – Enter on a NON-LAST focusable row:
+     *   1. Capture the current (updated) record from local state.
+     *   2. Signal Power Apps: OutAction="SAVE_RECORD", OutModifiedRecord=<JSON>.
+     *   3. Shift DOM focus to the next focusable input  →  keyboard stays open.
+     *
+     * Scenario B – Enter on the LAST focusable row:
+     *   1. Capture the record.
+     *   2. Signal Power Apps: OutAction="SAVE_AND_NEXT_PLANTACION".
+     *   3. .blur() the current input  →  Power Apps can advance the gallery.
+     *
+     * MOBILE NOTE: On Android, IME composition can mask key events (keyCode 229).
+     * We check isComposing to ignore those events. The form onSubmit handler
+     * below provides a more reliable fallback for mobile keyboards.
+     */
+    const handleKeyDown = useCallback(
+        (
+            e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+            index: number
+        ) => {
+            // Ignore IME composition events (Android autocomplete/predictive text)
+            if (e.nativeEvent.isComposing) return;
+            
+            if (e.key !== "Enter") return;
+            e.preventDefault(); // Prevent any default browser form-submit behaviour
+
+            handleSubmitLogic(index);
+        },
+        [handleSubmitLogic]
+    );
+
+    /**
+     * Form submit handler for mobile keyboards.
+     * Mobile OS (Android/iOS) fires form submission when user taps the
+     * "Go", "Next", or "Done" button on the virtual keyboard.
+     * This is more reliable than onKeyDown on mobile devices.
+     */
+    const handleFormSubmit = useCallback(
+        (e: React.FormEvent, index: number) => {
+            e.preventDefault(); // Stop page reload
+            handleSubmitLogic(index);
+        },
+        [handleSubmitLogic]
+    );
+
     // ── Photo button click handler ─────────────────────────────────────────
     /**
      * Scenario C – User clicks "Tomar / Cambiar Foto":
@@ -372,9 +397,17 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     // ── Render one input control based on TipoVariable ─────────────────────
     const renderInput = (record: FormRecord, index: number): React.ReactElement => {
         const hasError = validationErrors.has(index);
+        const posInFocusable = focusableIndices.indexOf(index);
+        const isLastFocusable = posInFocusable === focusableIndices.length - 1;
+        
+        // enterkeyhint tells mobile keyboards what action to show
+        // "next" = show "Next" button, "done" / "go" = show "Done" / "Go" button
+        const enterKeyHint: "next" | "done" = isLastFocusable ? "done" : "next";
+        
         const commonInputProps = {
             id: `df-input-${index}`,
             className: `df-input${hasError ? " df-input--error" : ""}`,
+            enterKeyHint, // HTML5 attribute for mobile keyboard action button
         };
 
         switch (record.TipoVariable) {
@@ -529,7 +562,13 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
 
                     {/* Input control (varies by TipoVariable) ─────────────── */}
                     <div className="df-input-wrapper">
-                        {renderInput(record, index)}
+                        {/* Wrap input in form for mobile keyboard submit detection */}
+                        <form
+                            onSubmit={(e) => handleFormSubmit(e, index)}
+                            className="df-input-form"
+                        >
+                            {renderInput(record, index)}
+                        </form>
                         {/* Validation error message ───────────────────────── */}
                         {validationErrors.has(index) && (
                             <div className="df-error-message" role="alert">

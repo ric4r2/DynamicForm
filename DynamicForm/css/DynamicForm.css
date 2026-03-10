@@ -131,6 +131,13 @@
     width: 100%;
 }
 
+/* Form wrapper for mobile keyboard submit detection */
+.df-input-form {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    ERROR MESSAGE
    Validation error displayed below invalid inputs
