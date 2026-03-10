@@ -117,6 +117,15 @@ function safeParseArray<T>(raw: string): T[] {
     }
 }
 
+/**
+ * Strips leading numbers and dots from variable names.
+ * Example: "1. Estado" → "Estado"
+ */
+function cleanVariableName(name: string): string {
+    // Remove leading pattern like "1. " or "12. " etc.
+    return name.replace(/^\d+\.\s*/, "").trim();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -245,14 +254,15 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 return "Valor numérico inválido";
             }
 
-            // Check minimum
-            if (record.ValorMinimo != null && numericValue < record.ValorMinimo) {
-                return `Mínimo: ${record.ValorMinimo}`;
-            }
-
-            // Check maximum
-            if (record.ValorMaximo != null && numericValue > record.ValorMaximo) {
-                return `Máximo: ${record.ValorMaximo}`;
+            // Check minimum and maximum - show range if both exist
+            if (record.ValorMinimo != null && record.ValorMaximo != null) {
+                if (numericValue < record.ValorMinimo || numericValue > record.ValorMaximo) {
+                    return `El valor debe estar entre ${record.ValorMinimo} y ${record.ValorMaximo}`;
+                }
+            } else if (record.ValorMinimo != null && numericValue < record.ValorMinimo) {
+                return `El valor mínimo es ${record.ValorMinimo}`;
+            } else if (record.ValorMaximo != null && numericValue > record.ValorMaximo) {
+                return `El valor máximo es ${record.ValorMaximo}`;
             }
 
             return null; // Valid
@@ -313,7 +323,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
 
             if (!isLast && nextIdx >= 0) {
                 // ── Scenario A: save and move to next input ──────────────────
-                triggerOutputChange("SAVE_RECORD", record, null);
+                // Append timestamp to ensure Power Apps detects the change
+                triggerOutputChange(`SAVE_RECORD_${Date.now()}`, record, null);
 
                 // Focus the next input immediately – this is what keeps the
                 // mobile keyboard open. The browser sees an uninterrupted focus
@@ -323,7 +334,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 });
             } else {
                 // ── Scenario B: save and hand off to Power Apps ───────────────
-                triggerOutputChange("SAVE_AND_NEXT_PLANTACION", record, null);
+                // Append timestamp to ensure Power Apps detects the change
+                triggerOutputChange(`SAVE_AND_NEXT_PLANTACION_${Date.now()}`, record, null);
 
                 // Blur removes keyboard focus.  Power Apps can now respond to
                 // the OutAction and navigate the gallery to the next Plantacion.
@@ -389,7 +401,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
      */
     const handlePhotoClick = useCallback(
         (record: FormRecord) => {
-            triggerOutputChange("TAKE_PHOTO", null, record.FK_Variable);
+            // Append timestamp to ensure Power Apps detects the change
+            triggerOutputChange(`TAKE_PHOTO_${Date.now()}`, null, record.FK_Variable);
         },
         [triggerOutputChange]
     );
@@ -440,11 +453,15 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                     <input
                         {...commonInputProps}
                         type="text"
-                        inputMode="decimal"   /* Shows decimal keyboard on mobile */                        placeholder="Ingrese el valor decimal"                        value={record.Valor ?? ""}
+                        inputMode="decimal"   /* Shows decimal keyboard on mobile */
+                        placeholder="Ingrese el valor decimal"
+                        value={record.Valor ?? ""}
                         ref={(el) => { inputRefs.current[index] = el; }}
-                        onChange={(e) =>
-                            handleChange(index, "Valor", e.target.value !== "" ? e.target.value : null)
-                        }
+                        onChange={(e) => {
+                            // Auto-convert dots to commas for Spanish decimal separator
+                            const valueWithComma = e.target.value.replace(/\./g, ",");
+                            handleChange(index, "Valor", valueWithComma !== "" ? valueWithComma : null);
+                        }}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
                 );
@@ -557,7 +574,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         htmlFor={`df-input-${index}`}
                     >
                         <span className="df-label-order">{record.OrderNo}.</span>
-                        {record.NombreVariable}
+                        <span className="df-label-text">{cleanVariableName(record.NombreVariable)}</span>
                     </label>
 
                     {/* Input control (varies by TipoVariable) ─────────────── */}

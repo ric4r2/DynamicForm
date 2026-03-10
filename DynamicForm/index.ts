@@ -122,7 +122,8 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
     //                Returns the current output values to Power Apps.
     // ═════════════════════════════════════════════════════════════════════════
     public getOutputs(): IOutputs {
-        return {
+        // Capture current output values to return
+        const outputs: IOutputs = {
             // Echo the bound property back unchanged (prevents infinite update loop)
             FormDataJSON: this._lastFormDataJSON,
 
@@ -130,6 +131,15 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
             OutModifiedRecord: this._outModifiedRecord,
             OutActiveVariable: this._outActiveVariable,
         };
+
+        // Clear the outputs immediately so Power Apps can detect the next change.
+        // Without this, consecutive calls with the same base action (even with
+        // different timestamps) might not trigger onChange events reliably.
+        this._outAction = "";
+        this._outModifiedRecord = "";
+        this._outActiveVariable = undefined;
+
+        return outputs;
     }
 
     // ═════════════════════════════════════════════════════════════════════════

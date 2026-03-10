@@ -103,13 +103,7 @@
 .df-label {
     display: flex;
     align-items: baseline;
-    gap: 4px;
-
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--df-color-label);
+    gap: 6px;
 
     /* Prevent label text from being selectable on long-press (mobile UX) */
     user-select: none;
@@ -120,7 +114,15 @@
     opacity: 0.55;
     font-weight: 400;
     font-size: 11px;
-    min-width: 18px;
+    min-width: 20px;
+    color: var(--df-color-label);
+}
+
+.df-label-text {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--df-color-text);
+    line-height: 1.3;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
