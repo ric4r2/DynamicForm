@@ -599,8 +599,34 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         <form
                             onSubmit={(e) => handleFormSubmit(e, index)}
                             className="df-input-form"
+                            style={{ display: "flex", flexDirection: "row", gap: "8px", alignItems: "center" }}
                         >
                             {renderInput(record, index)}
+                            {record.TipoVariable !== "Foto" && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        commitEnterAction(index);
+                                        // Try to blur the input if possible to mimic "done"
+                                        const el = inputRefs.current[index];
+                                        if (el && "blur" in el && typeof (el as HTMLElement).blur === "function") {
+                                            (el as HTMLElement).blur();
+                                        }
+                                    }}
+                                    className="df-test-button"
+                                    style={{
+                                        padding: "8px 12px",
+                                        backgroundColor: "#0078d4",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    Guardar
+                                </button>
+                            )}
                         </form>
                         {/* Validation error message ───────────────────────── */}
                         {validationErrors.has(index) && (
