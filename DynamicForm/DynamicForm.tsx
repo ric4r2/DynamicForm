@@ -332,15 +332,9 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             // Determine position of this index in the focusableIndices list.
             const posInFocusable = focusableIndices.indexOf(index);
             const isLast = posInFocusable === focusableIndices.length - 1;
-            const nextIdx = isLast ? -1 : focusableIndices[posInFocusable + 1];
 
-            if (!isLast && nextIdx >= 0) {
+            if (!isLast) {
                 emitToPowerApps("SAVE_RECORD", record, null);
-
-                // Yield to Power Apps thread first, then restore focus.
-                setTimeout(() => {
-                    inputRefs.current[nextIdx]?.focus();
-                }, 150);
             } else {
                 emitToPowerApps("SAVE_AND_NEXT_PLANTACION", record, null);
             }
@@ -374,8 +368,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             if (e.key !== "Enter") return;
             e.preventDefault();
 
-            // Emit synchronously within the user-gesture context.
-            commitEnterAction(index);
+            // Disabled temporarily for debugging:
+            // commitEnterAction(index);
 
             // Do not blur synchronously as it can cancel Power Apps' PCF notification handler
             setTimeout(() => {
@@ -384,7 +378,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 }
             }, 0);
         },
-        [commitEnterAction]
+        []
     );
 
     /**
@@ -397,8 +391,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         (e: React.FormEvent, index: number) => {
             e.preventDefault();
 
-            // Emit synchronously within the form-submit user-gesture context.
-            commitEnterAction(index);
+            // Disabled temporarily for debugging:
+            // commitEnterAction(index);
 
             setTimeout(() => {
                 const activeElement = document.activeElement;
@@ -407,7 +401,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 }
             }, 0);
         },
-        [commitEnterAction]
+        []
     );
 
     // ── Photo button click handler ─────────────────────────────────────────
