@@ -41,12 +41,15 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
     private _outModifiedRecord = "";
     /** FK_Variable for photo rows; undefined when not a photo action */
     private _outActiveVariable: number | undefined = undefined;
+    /** Monotonic token used to force Canvas OnChange detection */
+    private _outEventTick = 0;
 
     /**
      * We echo the last raw FormDataJSON back in getOutputs() so the
      * bound-property binding in Power Apps stays stable (no spurious updates).
      */
     private _lastFormDataJSON = "";
+    private _eventCounter = 0;
 
     // ── React component ref – lets us call imperative methods if needed ────
     // (currently unused, but kept for future extensibility)
@@ -68,6 +71,7 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
         // The container div may have a default display:block; set box-sizing
         // so the form fills the full width Power Apps allocates.
         this._container.style.cssText = "width:100%;height:100%;overflow-y:auto;box-sizing:border-box;";
+        console.log("[DynamicForm PCF] init completed");
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -77,6 +81,23 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
         const formDataJSON = context.parameters.FormDataJSON.raw ?? "";
         const refValoresJSON = context.parameters.RefValoresCategoricosJSON.raw ?? "";
         const skipNonTextField = context.parameters.skipNonTextField.raw ?? false;
+        const inboundOutAction = context.parameters.OutAction.raw ?? "";
+        const inboundOutModifiedRecord = context.parameters.OutModifiedRecord.raw ?? "";
+        const inboundOutEventTick = context.parameters.OutEventTick.raw ?? 0;
+
+        console.log("[DynamicForm PCF] updateView", {
+            formDataLength: formDataJSON.length,
+            refValoresLength: refValoresJSON.length,
+            skipNonTextField,
+            inboundOutAction,
+            inboundOutModifiedRecordLength: inboundOutModifiedRecord.length,
+            inboundOutEventTick,
+        });
+
+        // OutAction / OutModifiedRecord / OutEventTick are bound properties.
+        // Canvas may echo these values back through context.parameters on re-render.
+        // We intentionally DO NOT copy inbound values into internal output state;
+        // only triggerOutputChange() is allowed to mutate outgoing events.
 
         // Cache for getOutputs() echo
         this._lastFormDataJSON = formDataJSON;
@@ -103,6 +124,15 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
                 this._outAction = action;
                 this._outModifiedRecord = record ? JSON.stringify(record) : "";
                 this._outActiveVariable = activeVariable ?? undefined;
+                this._eventCounter += 1;
+                this._outEventTick = this._eventCounter;
+
+                console.log("[DynamicForm PCF] triggerOutputChange", {
+                    action: this._outAction,
+                    hasRecord: !!record,
+                    activeVariable: this._outActiveVariable,
+                    outEventTick: this._outEventTick,
+                });
 
                 // Signal PCF to call getOutputs() on the next frame
                 this._notifyOutputChanged();
@@ -130,14 +160,15 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
             OutAction: this._outAction,
             OutModifiedRecord: this._outModifiedRecord,
             OutActiveVariable: this._outActiveVariable,
+            OutEventTick: this._outEventTick,
         };
 
-        // Clear the outputs immediately so Power Apps can detect the next change.
-        // Without this, consecutive calls with the same base action (even with
-        // different timestamps) might not trigger onChange events reliably.
-        this._outAction = "";
-        this._outModifiedRecord = "";
-        this._outActiveVariable = undefined;
+        console.log("[DynamicForm PCF] getOutputs", {
+            outAction: outputs.OutAction,
+            outActiveVariable: outputs.OutActiveVariable,
+            outEventTick: outputs.OutEventTick,
+            outModifiedRecordLength: outputs.OutModifiedRecord ? outputs.OutModifiedRecord.length : 0,
+        });
 
         return outputs;
     }

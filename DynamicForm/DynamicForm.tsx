@@ -299,50 +299,53 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         [validateDecimal]
     );
 
-    // ── Core save-and-navigate logic ────────────────────────────────────────
+    // ── Shared emitter for all Power Apps notifications ─────────────────────
     /**
-     * Core save-and-navigate logic (shared by both form submit and keydown).
-     * Extracted to ensure consistent behavior across desktop and mobile.
+     * Single output path for all actions (Enter + Foto click) so both
+     * interaction types execute identical PCF notification logic.
      */
-    const handleSubmitLogic = useCallback(
+    const emitToPowerApps = useCallback(
+        (actionName: string, record: FormRecord | null, activeVariable: number | null) => {
+            console.log("[DynamicForm UI] emitToPowerApps", {
+                actionName,
+                fkVariable: record?.FK_Variable ?? null,
+                activeVariable,
+            });
+            // Keep action names stable for Power Fx comparisons.
+            // Event uniqueness is handled by OutEventTick in index.ts.
+            triggerOutputChange(actionName, record, activeVariable);
+        },
+        [triggerOutputChange]
+    );
+
+    // ── Core save-and-navigate logic ────────────────────────────────────────
+    const commitEnterAction = useCallback(
         (index: number) => {
             const record = records[index];
             if (!record) return;
 
-            // Check if there's a validation error for this field
+            // Don't emit while field has a validation error.
             if (validationErrors.has(index)) {
-                // Don't save if there's a validation error
-                // Keep focus on current field so user can correct it
                 return;
             }
 
-            // Determine position of this index in the focusableIndices list
+            // Determine position of this index in the focusableIndices list.
             const posInFocusable = focusableIndices.indexOf(index);
             const isLast = posInFocusable === focusableIndices.length - 1;
             const nextIdx = isLast ? -1 : focusableIndices[posInFocusable + 1];
 
             if (!isLast && nextIdx >= 0) {
-                // ── Scenario A: save and move to next input ──────────────────
-                // Append timestamp to ensure Power Apps detects the change
-                triggerOutputChange(`SAVE_RECORD_${Date.now()}`, record, null);
+                emitToPowerApps("SAVE_RECORD", record, null);
 
-                // Focus the next input immediately – this is what keeps the
-                // mobile keyboard open. The browser sees an uninterrupted focus
-                // chain within our isolated React tree.
-                requestAnimationFrame(() => {
+                // Yield to Power Apps thread first, then restore focus.
+                setTimeout(() => {
                     inputRefs.current[nextIdx]?.focus();
-                });
+                }, 150);
             } else {
-                // ── Scenario B: save and hand off to Power Apps ───────────────
-                // Append timestamp to ensure Power Apps detects the change
-                triggerOutputChange(`SAVE_AND_NEXT_PLANTACION_${Date.now()}`, record, null);
-
-                // Blur removes keyboard focus.  Power Apps can now respond to
-                // the OutAction and navigate the gallery to the next Plantacion.
-                inputRefs.current[index]?.blur();
+                emitToPowerApps("SAVE_AND_NEXT_PLANTACION", record, null);
             }
         },
-        [records, focusableIndices, validationErrors, triggerOutputChange]
+        [records, validationErrors, focusableIndices, emitToPowerApps]
     );
 
     // ── Enter-key handler ──────────────────────────────────────────────────
@@ -368,15 +371,20 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
             index: number
         ) => {
-            // Ignore IME composition events (Android autocomplete/predictive text)
-            if (e.nativeEvent.isComposing) return;
-            
             if (e.key !== "Enter") return;
-            e.preventDefault(); // Prevent any default browser form-submit behaviour
+            e.preventDefault();
 
-            handleSubmitLogic(index);
+            // Emit synchronously within the user-gesture context.
+            commitEnterAction(index);
+
+            // Do not blur synchronously as it can cancel Power Apps' PCF notification handler
+            setTimeout(() => {
+                if (e.target && "blur" in e.target && typeof (e.target as HTMLElement).blur === "function") {
+                    (e.target as HTMLElement).blur();
+                }
+            }, 0);
         },
-        [handleSubmitLogic]
+        [commitEnterAction]
     );
 
     /**
@@ -387,10 +395,19 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
      */
     const handleFormSubmit = useCallback(
         (e: React.FormEvent, index: number) => {
-            e.preventDefault(); // Stop page reload
-            handleSubmitLogic(index);
+            e.preventDefault();
+
+            // Emit synchronously within the form-submit user-gesture context.
+            commitEnterAction(index);
+
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                if (activeElement instanceof HTMLElement) {
+                    activeElement.blur();
+                }
+            }, 0);
         },
-        [handleSubmitLogic]
+        [commitEnterAction]
     );
 
     // ── Photo button click handler ─────────────────────────────────────────
@@ -401,10 +418,9 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
      */
     const handlePhotoClick = useCallback(
         (record: FormRecord) => {
-            // Append timestamp to ensure Power Apps detects the change
-            triggerOutputChange(`TAKE_PHOTO_${Date.now()}`, null, record.FK_Variable);
+            emitToPowerApps("TAKE_PHOTO", null, record.FK_Variable);
         },
-        [triggerOutputChange]
+        [emitToPowerApps]
     );
 
     // ── Render one input control based on TipoVariable ─────────────────────
