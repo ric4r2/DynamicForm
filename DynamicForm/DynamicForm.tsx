@@ -335,8 +335,15 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
 
             if (!isLast) {
                 emitToPowerApps("SAVE_RECORD", record, null);
+                // Move focus to the next focusable input so the keyboard stays open.
+                const nextIdx = focusableIndices[posInFocusable + 1];
+                if (nextIdx !== undefined) {
+                    inputRefs.current[nextIdx]?.focus();
+                }
             } else {
                 emitToPowerApps("SAVE_AND_NEXT_PLANTACION", record, null);
+                // Last field – blur so Power Apps can advance to the next plantacion.
+                inputRefs.current[index]?.blur();
             }
         },
         [records, validationErrors, focusableIndices, emitToPowerApps]
@@ -367,21 +374,9 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         ) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-
-            // Programmatically click the associated test button
-            const testBtn = document.getElementById(`test-btn-${index}`);
-            if (testBtn) {
-                testBtn.click();
-            }
-
-            // Do not blur synchronously as it can cancel Power Apps' PCF notification handler
-            setTimeout(() => {
-                if (e.target && "blur" in e.target && typeof (e.target as HTMLElement).blur === "function") {
-                    (e.target as HTMLElement).blur();
-                }
-            }, 0);
+            commitEnterAction(index);
         },
-        []
+        [commitEnterAction]
     );
 
     /**
@@ -393,21 +388,9 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const handleFormSubmit = useCallback(
         (e: React.FormEvent, index: number) => {
             e.preventDefault();
-
-            // Programmatically click the associated test button
-            const testBtn = document.getElementById(`test-btn-${index}`);
-            if (testBtn) {
-                testBtn.click();
-            }
-
-            setTimeout(() => {
-                const activeElement = document.activeElement;
-                if (activeElement instanceof HTMLElement) {
-                    activeElement.blur();
-                }
-            }, 0);
+            commitEnterAction(index);
         },
-        []
+        [commitEnterAction]
     );
 
     // ── Photo button click handler ─────────────────────────────────────────
@@ -419,13 +402,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const handlePhotoClick = useCallback(
         (record: FormRecord) => {
             emitToPowerApps("TAKE_PHOTO", null, record.FK_Variable);
-        },
-        [emitToPowerApps]
-    );
-
-    const handleTestClick = useCallback(
-        (record: FormRecord) => {
-            emitToPowerApps("TEST_ONCHANGE", null, record.FK_Variable);
         },
         [emitToPowerApps]
     );
@@ -609,16 +585,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                             style={{ display: "flex", flexDirection: "row", gap: "8px", alignItems: "center" }}
                         >
                             {renderInput(record, index)}
-                            {record.TipoVariable !== "Foto" && (
-                                <button
-                                    type="button"
-                                    id={`test-btn-${index}`}
-                                    className="df-photo-button"
-                                    onClick={() => handleTestClick(record)}
-                                >
-                                    Test
-                                </button>
-                            )}
                         </form>
                         {/* Validation error message ───────────────────────── */}
                         {validationErrors.has(index) && (
