@@ -373,13 +373,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             if (testBtn) {
                 testBtn.click();
             }
-
-            // Do not blur synchronously as it can cancel Power Apps' PCF notification handler
-            setTimeout(() => {
-                if (e.target && "blur" in e.target && typeof (e.target as HTMLElement).blur === "function") {
-                    (e.target as HTMLElement).blur();
-                }
-            }, 0);
         },
         []
     );
@@ -399,13 +392,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             if (testBtn) {
                 testBtn.click();
             }
-
-            setTimeout(() => {
-                const activeElement = document.activeElement;
-                if (activeElement instanceof HTMLElement) {
-                    activeElement.blur();
-                }
-            }, 0);
         },
         []
     );
