@@ -368,8 +368,11 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             if (e.key !== "Enter") return;
             e.preventDefault();
 
-            // Disabled temporarily for debugging:
-            // commitEnterAction(index);
+            // Programmatically click the associated test button
+            const testBtn = document.getElementById(`test-btn-${index}`);
+            if (testBtn) {
+                testBtn.click();
+            }
 
             // Do not blur synchronously as it can cancel Power Apps' PCF notification handler
             setTimeout(() => {
@@ -391,8 +394,11 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         (e: React.FormEvent, index: number) => {
             e.preventDefault();
 
-            // Disabled temporarily for debugging:
-            // commitEnterAction(index);
+            // Programmatically click the associated test button
+            const testBtn = document.getElementById(`test-btn-${index}`);
+            if (testBtn) {
+                testBtn.click();
+            }
 
             setTimeout(() => {
                 const activeElement = document.activeElement;
@@ -606,6 +612,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                             {record.TipoVariable !== "Foto" && (
                                 <button
                                     type="button"
+                                    id={`test-btn-${index}`}
                                     className="df-photo-button"
                                     onClick={() => handleTestClick(record)}
                                 >

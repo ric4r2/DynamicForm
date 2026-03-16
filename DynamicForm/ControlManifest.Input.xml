@@ -11,9 +11,9 @@
   -->
   <control namespace="DynamicForm"
            constructor="DynamicForm"
-           version="1.3.4"
+           version="1.3.5"
            display-name-key="DynamicForm"
-           description-key="JSON-driven dynamic form with native React keyboard focus management (v1.3.4)"
+           description-key="JSON-driven dynamic form with native React keyboard focus management (v1.3.5)"
            control-type="standard">
 
     <external-service-usage enabled="false" />
