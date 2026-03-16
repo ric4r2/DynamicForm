@@ -417,6 +417,13 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         [emitToPowerApps]
     );
 
+    const handleTestClick = useCallback(
+        (record: FormRecord) => {
+            emitToPowerApps("TEST_ONCHANGE", null, record.FK_Variable);
+        },
+        [emitToPowerApps]
+    );
+
     // ── Render one input control based on TipoVariable ─────────────────────
     const renderInput = (record: FormRecord, index: number): React.ReactElement => {
         const hasError = validationErrors.has(index);
@@ -599,26 +606,10 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                             {record.TipoVariable !== "Foto" && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        commitEnterAction(index);
-                                        // Try to blur the input if possible to mimic "done"
-                                        const el = inputRefs.current[index];
-                                        if (el && "blur" in el && typeof (el as HTMLElement).blur === "function") {
-                                            (el as HTMLElement).blur();
-                                        }
-                                    }}
-                                    className="df-test-button"
-                                    style={{
-                                        padding: "8px 12px",
-                                        backgroundColor: "#0078d4",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "4px",
-                                        cursor: "pointer",
-                                        flexShrink: 0
-                                    }}
+                                    className="df-photo-button"
+                                    onClick={() => handleTestClick(record)}
                                 >
-                                    Guardar
+                                    Test
                                 </button>
                             )}
                         </form>
