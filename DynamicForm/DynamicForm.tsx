@@ -100,7 +100,8 @@ export interface IDynamicFormProps {
     triggerOutputChange: (
         action: string,
         record: FormRecord | null,
-        activeVariable: number | null
+        activeVariable: number | null,
+        allRecords: FormRecord[] | null
     ) => void;
 }
 
@@ -313,9 +314,9 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             });
             // Keep action names stable for Power Fx comparisons.
             // Event uniqueness is handled by OutEventTick in index.ts.
-            triggerOutputChange(actionName, record, activeVariable);
+            triggerOutputChange(actionName, record, activeVariable, records);
         },
-        [triggerOutputChange]
+        [triggerOutputChange, records]
     );
 
     // ── Core save-and-navigate logic ────────────────────────────────────────
@@ -601,6 +602,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                                     id={`test-btn-${index}`}
                                     className="df-photo-button"
                                     onClick={() => handleTestClick(record)}
+                                    style={{ display: "none" }}
                                 >
                                     Test
                                 </button>

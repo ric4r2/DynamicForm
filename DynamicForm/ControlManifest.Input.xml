@@ -11,9 +11,9 @@
   -->
   <control namespace="DynamicForm"
            constructor="DynamicForm"
-           version="1.5.5"
+           version="1.6.2"
            display-name-key="DynamicForm"
-           description-key="JSON-driven dynamic form with native React keyboard focus management (v1.5.5)"
+           description-key="JSON-driven dynamic form with native React keyboard focus management (v1.6.2)"
            control-type="standard">
 
     <external-service-usage enabled="false" />
@@ -87,6 +87,17 @@
     <property name="OutModifiedRecord"
               display-name-key="Output Modified Record"
               description-key="JSON string of the single FormRecord that was saved"
+              of-type="Multiple"
+              usage="bound"
+              required="false" />
+
+    <!--
+      OutDataJSON – all FormRecords with updated values,
+      serialized as a JSON string so Power Apps can access the full updated state.
+    -->
+    <property name="OutDataJSON"
+              display-name-key="Output Data JSON"
+              description-key="JSON string of the complete list of FormRecord objects with their updated values"
               of-type="Multiple"
               usage="bound"
               required="false" />

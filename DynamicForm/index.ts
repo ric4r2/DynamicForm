@@ -39,6 +39,8 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
     private _outAction = "";
     /** Serialised single record to send to Power Apps */
     private _outModifiedRecord = "";
+    /** Serialised full data array to send to Power Apps */
+    private _outDataJSON = "";
     /** FK_Variable for photo rows; undefined when not a photo action */
     private _outActiveVariable: number | undefined = undefined;
     /** Monotonic token used to force Canvas OnChange detection */
@@ -115,14 +117,17 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
              * @param action         – One of SAVE_RECORD | SAVE_AND_NEXT_PLANTACION | TAKE_PHOTO
              * @param record         – The modified FormRecord (null for TAKE_PHOTO)
              * @param activeVariable – FK_Variable (null unless action === TAKE_PHOTO)
+             * @param allRecords     – Full array of all records
              */
             triggerOutputChange: (
                 action: string,
                 record: FormRecord | null,
-                activeVariable: number | null
+                activeVariable: number | null,
+                allRecords: FormRecord[] | null
             ): void => {
                 this._outAction = action;
                 this._outModifiedRecord = record ? JSON.stringify(record) : "";
+                this._outDataJSON = allRecords ? JSON.stringify(allRecords) : "";
                 this._outActiveVariable = activeVariable ?? undefined;
                 this._eventCounter += 1;
                 this._outEventTick = this._eventCounter;
@@ -132,6 +137,7 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
                     hasRecord: !!record,
                     activeVariable: this._outActiveVariable,
                     outEventTick: this._outEventTick,
+                    outDataJSONLength: this._outDataJSON.length,
                 });
 
                 // Signal PCF to call getOutputs() on the next frame
@@ -159,6 +165,7 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
 
             OutAction: this._outAction,
             OutModifiedRecord: this._outModifiedRecord,
+            OutDataJSON: this._outDataJSON,
             OutActiveVariable: this._outActiveVariable,
             OutEventTick: this._outEventTick,
         };
@@ -168,6 +175,7 @@ export class DynamicForm implements ComponentFramework.StandardControl<IInputs, 
             outActiveVariable: outputs.OutActiveVariable,
             outEventTick: outputs.OutEventTick,
             outModifiedRecordLength: outputs.OutModifiedRecord ? outputs.OutModifiedRecord.length : 0,
+            outDataJSONLength: outputs.OutDataJSON ? outputs.OutDataJSON.length : 0,
         });
 
         return outputs;
