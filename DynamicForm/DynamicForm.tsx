@@ -1,8 +1,10 @@
 /**
  * DynamicForm.tsx  –  The React functional component
- * ─────────────────────────────────────────────────────────────────────────
+ * 
+─────────────────────────────────────────────────────────────────────────
  * FOCUS MANAGEMENT STRATEGY
- * ──────────────────────────
+ * 
+──────────────────────────
  * Goal: keep the mobile virtual keyboard open continuously as the user
  * tabs through the form, and never steal/drop focus unexpectedly.
  *
@@ -18,16 +20,17 @@
  *
  *  3. Enter-key navigation  (handleKeyDown)
  *     – Not-last focusable row  →  save record + focus next input
- *     – Last focusable row      →  save record + blur (Power Apps takes over)
+ *     – Last focusable row      
+→  save record + blur (Power Apps takes over)
  *     "Focusable" = TipoVariable !== "Foto"
  *     We pre-compute a focusableIndices[] list to make next/last lookups O(1).
  *
  *  4. notifyOutputChanged is NEVER called on individual keystrokes.
  *     The records array lives in local useState and is mutated in-place.
  *     Power Apps only learns about a record when the user presses Enter.
- * ─────────────────────────────────────────────────────────────────────────
+ * 
+─────────────────────────────────────────────────────────────────────────
  */
-
 import * as React from "react";
 import {
     useState,
@@ -36,11 +39,9 @@ import {
     useCallback,
     useMemo,
 } from "react";
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  DATA TYPES  (exported so index.ts can type the callback argument)
 // ─────────────────────────────────────────────────────────────────────────────
-
 /** One question / measurement row received from Power Apps */
 export interface FormRecord {
     FK_Plantacion: number;
@@ -77,14 +78,12 @@ export interface FormRecord {
      */
     ValorMaximo?: number | null;
 }
-
 /** One option in a Categorica dropdown */
 export interface CategoricOption {
     FK_Variable: number;
     PK_ValorCategorico: number;
     Valor: string;
 }
-
 /** Props injected by index.ts */
 export interface IDynamicFormProps {
     /** Raw JSON string of FormRecord[] from Power Apps */
@@ -104,11 +103,9 @@ export interface IDynamicFormProps {
         allRecords: FormRecord[] | null
     ) => void;
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-
 function safeParseArray<T>(raw: string): T[] {
     try {
         const parsed = JSON.parse(raw) as unknown;
@@ -117,7 +114,6 @@ function safeParseArray<T>(raw: string): T[] {
         return [];
     }
 }
-
 /**
  * Strips leading numbers and dots from variable names.
  * Example: "1. Estado" → "Estado"
@@ -126,11 +122,9 @@ function cleanVariableName(name: string): string {
     // Remove leading pattern like "1. " or "12. " etc.
     return name.replace(/^\d+\.\s*/, "").trim();
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-
 export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     formDataJSON,
     refValoresCategoricosJSON,
@@ -189,32 +183,29 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             }, []),
         [records, skipNonTextField]
     );
-
-    // ── Effect 1: parse FormDataJSON when it changes ------------------------
+    // 
+// ── Effect 1: parse FormDataJSON when it changes -----------------------
     useEffect(() => {
         const parsed = safeParseArray<FormRecord>(formDataJSON);
         // Sort ascending by OrderNo so the render order matches designer intent
         parsed.sort((a, b) => a.OrderNo - b.OrderNo);
         setRecords(parsed);
     }, [formDataJSON]);
-
-    // ── Effect 2: parse RefValoresCategoricosJSON when it changes -----------
+    // 
+// ── Effect 2: parse RefValoresCategoricosJSON when it changes ----------
     useEffect(() => {
         setCategoricOptions(safeParseArray<CategoricOption>(refValoresCategoricosJSON));
     }, [refValoresCategoricosJSON]);
-
-    // ── Effect 3: auto-focus first input when FK_Plantacion changes ---------
+    // 
+// ── Effect 3: auto-focus first input when FK_Plantacion changes --------
     // We compare against lastPlantacionRef to distinguish a genuine Plantacion
     // switch from a re-render caused by the user editing a field.
     useEffect(() => {
         if (records.length === 0) return;
-
         const currentPlantacion = records[0].FK_Plantacion;
         if (currentPlantacion === lastPlantacionRef.current) return; // same form, skip
-
         // New Plantacion detected  →  update tracker and schedule focus
         lastPlantacionRef.current = currentPlantacion;
-
         // Use requestAnimationFrame so React has finished rendering the DOM
         // nodes and all refs are populated before we call .focus().
         requestAnimationFrame(() => {
@@ -224,8 +215,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             }
         });
     }, [records, focusableIndices]);
-
-    // ── Integer sanitization helper ──────────────────────────────────────────
+    // 
+// ── Integer sanitization helper ──────────────────────────────────────────
     /**
      * Sanitizes input for integer fields.
      * Strips all non-digit characters (commas, dots, minus signs, letters).
@@ -235,8 +226,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         const cleanValue = value.replace(/[^0-9]/g, "");
         return cleanValue !== "" ? cleanValue : null;
     }, []);
-
-    // ── Validation helper for decimal fields ───────────────────────────────
+    // 
+// ── Validation helper for decimal fields ───────────────────────────────
     /**
      * Validates a decimal value against min/max constraints.
      * Accepts Spanish comma format (e.g., "12,5").
@@ -245,16 +236,13 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const validateDecimal = useCallback(
         (value: string | null, record: FormRecord): string | null => {
             if (!value || value.trim() === "") return null; // Empty is valid (optional field)
-
             // Convert Spanish comma to dot for JavaScript parsing
             const normalizedValue = value.replace(",", ".");
             const numericValue = parseFloat(normalizedValue);
-
             // Check if it's a valid number
             if (isNaN(numericValue)) {
                 return "Valor numérico inválido";
             }
-
             // Check minimum and maximum - show range if both exist
             if (record.ValorMinimo != null && record.ValorMaximo != null) {
                 if (numericValue < record.ValorMinimo || numericValue > record.ValorMaximo) {
@@ -265,13 +253,12 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             } else if (record.ValorMaximo != null && numericValue > record.ValorMaximo) {
                 return `El valor máximo es ${record.ValorMaximo}`;
             }
-
             return null; // Valid
         },
         []
     );
-
-    // ── State mutation: update a field in the local records array ----------
+    // 
+// ── State mutation: update a field in the local records array ---------
     // This does NOT call notifyOutputChanged. Power Apps learns about the
     // change only when the user presses Enter (see handleKeyDown below).
     const handleChange = useCallback(
@@ -279,7 +266,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             setRecords((prev) => {
                 const next = [...prev];
                 next[index] = { ...next[index], [field]: value };
-
                 // Validate decimal fields
                 if (field === "Valor" && next[index].TipoVariable === "Numero decimal") {
                     const error = validateDecimal(value as string | null, next[index]);
@@ -293,14 +279,13 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         return newErrors;
                     });
                 }
-
                 return next;
             });
         },
         [validateDecimal]
     );
-
-    // ── Shared emitter for all Power Apps notifications ─────────────────────
+    // 
+// ── Shared emitter for all Power Apps notifications ─────────────────────
     /**
      * Single output path for all actions (Enter + Foto click) so both
      * interaction types execute identical PCF notification logic.
@@ -318,22 +303,19 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         [triggerOutputChange, records]
     );
-
-    // ── Core save-and-navigate logic ────────────────────────────────────────
+    // 
+// ── Core save-and-navigate logic ────────────────────────────────────────
     const commitEnterAction = useCallback(
         (index: number) => {
             const record = records[index];
             if (!record) return;
-
             // Don't emit while field has a validation error.
             if (validationErrors.has(index)) {
                 return;
             }
-
             // Determine position of this index in the focusableIndices list.
             const posInFocusable = focusableIndices.indexOf(index);
             const isLast = posInFocusable === focusableIndices.length - 1;
-
             if (!isLast) {
                 emitToPowerApps("SAVE_RECORD", record, null);
             } else {
@@ -342,8 +324,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         [records, validationErrors, focusableIndices, emitToPowerApps]
     );
-
-    // ── Enter-key handler ──────────────────────────────────────────────────
+    // 
+// ── Enter-key handler ──────────────────────────────────────────────────
     /**
      * handleKeyDown is attached to every text/number/select input.
      *
@@ -368,7 +350,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         ) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-
             // Programmatically click the associated test button
             const testBtn = document.getElementById(`test-btn-${index}`);
             if (testBtn) {
@@ -377,7 +358,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         []
     );
-
     /**
      * Form submit handler for mobile keyboards.
      * Mobile OS (Android/iOS) fires form submission when user taps the
@@ -387,7 +367,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const handleFormSubmit = useCallback(
         (e: React.FormEvent, index: number) => {
             e.preventDefault();
-
             // Programmatically click the associated test button
             const testBtn = document.getElementById(`test-btn-${index}`);
             if (testBtn) {
@@ -396,8 +375,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         []
     );
-
-    // ── Photo button click handler ─────────────────────────────────────────
+    // 
+// ── Photo button click handler ─────────────────────────────────────────
     /**
      * Scenario C – User clicks "Tomar / Cambiar Foto":
      *   Signal Power Apps with OutAction="TAKE_PHOTO" and OutActiveVariable
@@ -409,33 +388,29 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         [emitToPowerApps]
     );
-
     const handleTestClick = useCallback(
         (record: FormRecord) => {
             emitToPowerApps("TEST_ONCHANGE", null, record.FK_Variable);
         },
         [emitToPowerApps]
     );
-
-    // ── Render one input control based on TipoVariable ─────────────────────
+    // 
+// ── Render one input control based on TipoVariable ─────────────────────
     const renderInput = (record: FormRecord, index: number): React.ReactElement => {
         const hasError = validationErrors.has(index);
         const posInFocusable = focusableIndices.indexOf(index);
         const isLastFocusable = posInFocusable === focusableIndices.length - 1;
-        
         // enterkeyhint tells mobile keyboards what action to show
         // "next" = show "Next" button, "done" / "go" = show "Done" / "Go" button
         const enterKeyHint: "next" | "done" = isLastFocusable ? "done" : "next";
-        
         const commonInputProps = {
             id: `df-input-${index}`,
             className: `df-input${hasError ? " df-input--error" : ""}`,
             enterKeyHint, // HTML5 attribute for mobile keyboard action button
         };
-
         switch (record.TipoVariable) {
-
-            // ── Integer numeric field ───────────────────────────────────────
+            // 
+// ── Integer numeric field ───────────────────────────────────────
             // Uses type="text" to prevent mobile keyboards from adding commas/dots
             // Only digits 0-9 are allowed; all other chars are stripped
             case "Numero entero":
@@ -455,8 +430,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
                 );
-
-            // ── Decimal numeric field ───────────────────────────────────────
+            // 
+// ── Decimal numeric field ───────────────────────────────────────
             // Uses type="text" to preserve Spanish comma separator (e.g., "12,5")
             case "Numero decimal":
                 return (
@@ -475,8 +450,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
                 );
-
-            // ── Free-text field ─────────────────────────────────────────────
+            // 
+// ── Free-text field ─────────────────────────────────────────────
             case "Texto":
                 return (
                     <input
@@ -494,8 +469,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
                 );
-
-            // ── Categorical dropdown ────────────────────────────────────────
+            // 
+// ── Categorical dropdown ────────────────────────────────────────
             case "Categorica": {
                 const options = categoricOptions.filter(
                     (o) => o.FK_Variable === record.FK_Variable
@@ -525,7 +500,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                     </select>
                 );
             }
-
             // ── Photo trigger button ────────────────────────────────────────
             // This is intentionally excluded from Enter-key navigation because
             // it doesn't capture text input.  The user taps it explicitly.
@@ -552,7 +526,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                     </div>
                 );
             }
-
             // ── Fallback: unknown TipoVariable → render as text ────────────
             default:
                 return (
@@ -569,7 +542,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 );
         }
     };
-
     // ── Render ──────────────────────────────────────────────────────────────
     return (
         <div className="df-container" role="form" aria-label="Dynamic evaluation form">
@@ -586,7 +558,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         <span className="df-label-order">{record.OrderNo}.</span>
                         <span className="df-label-text">{cleanVariableName(record.NombreVariable)}</span>
                     </label>
-
                     {/* Input control (varies by TipoVariable) ─────────────── */}
                     <div className="df-input-wrapper">
                         {/* Wrap input in form for mobile keyboard submit detection */}
@@ -596,7 +567,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                             style={{ display: "flex", flexDirection: "row", gap: "8px", alignItems: "center" }}
                         >
                             {renderInput(record, index)}
-                            {record.TipoVariable !== "Foto" && (
+                            {index === records.length - 1 && (
                                 <button
                                     type="button"
                                     id={`test-btn-${index}`}
@@ -617,7 +588,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                     </div>
                 </div>
             ))}
-
             {/* Empty state when no records are loaded ───────────────────── */}
             {records.length === 0 && (
                 <div className="df-empty">
