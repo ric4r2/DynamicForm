@@ -257,7 +257,33 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         },
         []
     );
-    // 
+    //
+// ── Validation helper for integer fields ───────────────────────────────
+    /**
+     * Validates an integer value against min/max constraints.
+     * Returns error message or null if valid.
+     */
+    const validateInteger = useCallback(
+        (value: string | null, record: FormRecord): string | null => {
+            if (!value || value.trim() === "") return null;
+            const numericValue = parseInt(value, 10);
+            if (isNaN(numericValue)) {
+                return "Valor numérico inválido";
+            }
+            if (record.ValorMinimo != null && record.ValorMaximo != null) {
+                if (numericValue < record.ValorMinimo || numericValue > record.ValorMaximo) {
+                    return `El valor debe estar entre ${record.ValorMinimo} y ${record.ValorMaximo}`;
+                }
+            } else if (record.ValorMinimo != null && numericValue < record.ValorMinimo) {
+                return `El valor mínimo es ${record.ValorMinimo}`;
+            } else if (record.ValorMaximo != null && numericValue > record.ValorMaximo) {
+                return `El valor máximo es ${record.ValorMaximo}`;
+            }
+            return null;
+        },
+        []
+    );
+    //
 // ── State mutation: update a field in the local records array ---------
     // This does NOT call notifyOutputChanged. Power Apps learns about the
     // change only when the user presses Enter (see handleKeyDown below).
@@ -266,9 +292,14 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             setRecords((prev) => {
                 const next = [...prev];
                 next[index] = { ...next[index], [field]: value };
-                // Validate decimal fields
-                if (field === "Valor" && next[index].TipoVariable === "Numero decimal") {
-                    const error = validateDecimal(value as string | null, next[index]);
+                if (field === "Valor") {
+                    const tipo = next[index].TipoVariable;
+                    let error: string | null = null;
+                    if (tipo === "Numero decimal") {
+                        error = validateDecimal(value as string | null, next[index]);
+                    } else if (tipo === "Numero entero") {
+                        error = validateInteger(value as string | null, next[index]);
+                    }
                     setValidationErrors((prevErrors) => {
                         const newErrors = new Map(prevErrors);
                         if (error) {
@@ -282,7 +313,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                 return next;
             });
         },
-        [validateDecimal]
+        [validateDecimal, validateInteger]
     );
     // 
 // ── Shared emitter for all Power Apps notifications ─────────────────────
@@ -350,13 +381,35 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
         ) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-            // Programmatically click the associated test button
-            const testBtn = document.getElementById(`test-btn-${index}`);
-            if (testBtn) {
-                testBtn.click();
+
+            const record = records[index];
+            const isNumberField =
+                record.TipoVariable === "Numero entero" ||
+                record.TipoVariable === "Numero decimal";
+
+            // If the number field has an active validation error, clear the value and stay.
+            if (isNumberField && validationErrors.has(index)) {
+                handleChange(index, "Valor", null);
+                return;
+            }
+
+            const posInFocusable = focusableIndices.indexOf(index);
+            const isLast = posInFocusable === focusableIndices.length - 1;
+
+            if (isLast) {
+                // Last focusable input: keep existing behavior (click hidden test button).
+                const testBtn = document.getElementById(`test-btn-${index}`);
+                if (testBtn) testBtn.click();
+                return;
+            }
+
+            // Non-last input: shift focus to the next focusable input.
+            const nextIdx = focusableIndices[posInFocusable + 1];
+            if (nextIdx !== undefined) {
+                inputRefs.current[nextIdx]?.focus();
             }
         },
-        []
+        [records, focusableIndices, validationErrors, handleChange]
     );
     /**
      * Form submit handler for mobile keyboards.
@@ -367,13 +420,35 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const handleFormSubmit = useCallback(
         (e: React.FormEvent, index: number) => {
             e.preventDefault();
-            // Programmatically click the associated test button
-            const testBtn = document.getElementById(`test-btn-${index}`);
-            if (testBtn) {
-                testBtn.click();
+
+            const record = records[index];
+            const isNumberField =
+                record.TipoVariable === "Numero entero" ||
+                record.TipoVariable === "Numero decimal";
+
+            // If the number field has an active validation error, clear the value and stay.
+            if (isNumberField && validationErrors.has(index)) {
+                handleChange(index, "Valor", null);
+                return;
+            }
+
+            const posInFocusable = focusableIndices.indexOf(index);
+            const isLast = posInFocusable === focusableIndices.length - 1;
+
+            if (isLast) {
+                // Last focusable input: keep existing behavior (click hidden test button).
+                const testBtn = document.getElementById(`test-btn-${index}`);
+                if (testBtn) testBtn.click();
+                return;
+            }
+
+            // Non-last input: shift focus to the next focusable input.
+            const nextIdx = focusableIndices[posInFocusable + 1];
+            if (nextIdx !== undefined) {
+                inputRefs.current[nextIdx]?.focus();
             }
         },
-        []
+        [records, focusableIndices, validationErrors, handleChange]
     );
     // 
 // ── Photo button click handler ─────────────────────────────────────────
@@ -567,7 +642,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                             style={{ display: "flex", flexDirection: "row", gap: "8px", alignItems: "center" }}
                         >
                             {renderInput(record, index)}
-                            {index === records.length - 1 && (
+                            {index === focusableIndices[focusableIndices.length - 1] && (
                                 <button
                                     type="button"
                                     id={`test-btn-${index}`}
