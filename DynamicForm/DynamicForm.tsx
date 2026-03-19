@@ -122,6 +122,24 @@ function cleanVariableName(name: string): string {
     // Remove leading pattern like "1. " or "12. " etc.
     return name.replace(/^\d+\.\s*/, "").trim();
 }
+
+/**
+ * Sanitizes input for decimal fields.
+ * Keeps only digits plus one decimal separator and normalizes it to comma.
+ */
+function sanitizeDecimal(value: string): string | null {
+    const normalized = value.replace(/\./g, ",").replace(/[^0-9,]/g, "");
+    const firstComma = normalized.indexOf(",");
+
+    if (firstComma === -1) {
+        return normalized !== "" ? normalized : null;
+    }
+
+    const intPart = normalized.slice(0, firstComma);
+    const fracPart = normalized.slice(firstComma + 1).replace(/,/g, "");
+    const combined = `${intPart},${fracPart}`;
+    return combined !== "" ? combined : null;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 //  COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -465,7 +483,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     );
     const handleTestClick = useCallback(
         (record: FormRecord) => {
-            emitToPowerApps("TEST_ONCHANGE", null, record.FK_Variable);
+            emitToPowerApps("SAVE_AND_NEXT_PLANTACION", null, record.FK_Variable);
         },
         [emitToPowerApps]
     );
@@ -518,9 +536,8 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         value={record.Valor ?? ""}
                         ref={(el) => { inputRefs.current[index] = el; }}
                         onChange={(e) => {
-                            // Auto-convert dots to commas for Spanish decimal separator
-                            const valueWithComma = e.target.value.replace(/\./g, ",");
-                            handleChange(index, "Valor", valueWithComma !== "" ? valueWithComma : null);
+                            const sanitized = sanitizeDecimal(e.target.value);
+                            handleChange(index, "Valor", sanitized);
                         }}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                     />
@@ -630,7 +647,6 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
                         className="df-label"
                         htmlFor={`df-input-${index}`}
                     >
-                        <span className="df-label-order">{record.OrderNo}.</span>
                         <span className="df-label-text">{cleanVariableName(record.NombreVariable)}</span>
                     </label>
                     {/* Input control (varies by TipoVariable) ─────────────── */}
