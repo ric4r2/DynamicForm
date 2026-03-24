@@ -597,7 +597,7 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
             // it doesn't capture text input.  The user taps it explicitly.
             case "Foto": {
                 const hasPhoto = record.URL && record.URL.trim() !== "";
-                const buttonText = hasPhoto ? "Cambiar Foto" : "Tomar Foto";
+                const buttonText = hasPhoto ? "Cambiar Foto" : "Añadir Foto";
                 return (
                     <div className="df-photo-container">
                         {hasPhoto && (
