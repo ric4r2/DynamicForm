@@ -174,6 +174,14 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     const inputRefs = useRef<(HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null)[]>([]);
 
     /**
+     * Debounce ref for last-field submission.
+     * Tracks the timestamp of the last SAVE_AND_NEXT_PLANTACION trigger to prevent
+     * multiple rapid submissions when user taps Enter multiple times quickly.
+     */
+    const lastSubmissionTimeRef = useRef<number>(0);
+    const DEBOUNCE_MS = 500;
+
+    /**
      * Tracks the FK_Plantacion of the currently displayed form so we can
      * detect genuine Plantacion transitions (as opposed to re-renders caused
      * by our own state updates) and auto-focus the first field.
@@ -483,6 +491,12 @@ export const DynamicFormComponent: React.FC<IDynamicFormProps> = ({
     );
     const handleTestClick = useCallback(
         (record: FormRecord) => {
+            const now = Date.now();
+            if (now - lastSubmissionTimeRef.current < DEBOUNCE_MS) {
+                console.log("[DynamicForm] Submission debounced: too soon after last trigger");
+                return;
+            }
+            lastSubmissionTimeRef.current = now;
             emitToPowerApps("SAVE_AND_NEXT_PLANTACION", null, record.FK_Variable);
         },
         [emitToPowerApps]
